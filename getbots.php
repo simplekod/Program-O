@@ -9,37 +9,41 @@
 * DETAILS: Searches the database for all active chatbots, returning a JSON encoded array of ID/name pairs
 ***************************************/
 
+declare(strict_types=1);
+
 $time_start = microtime(true);
 $script_start = $time_start;
 $last_timestamp = $time_start;
-$thisFile = __FILE__;
 
-/** @noinspection PhpIncludeInspection */
-require_once("config/global_config.php");
-//load shared files
-/** @noinspection PhpIncludeInspection */
-require_once(_LIB_PATH_ . 'PDO_functions.php');
-/** @noinspection PhpIncludeInspection */
-include_once (_LIB_PATH_ . "error_functions.php");
-/** @noinspection PhpIncludeInspection */
-include_once(_LIB_PATH_ . 'misc_functions.php');
+// Load config and shared files
+require_once "config/global_config.php";
+require_once _LIB_PATH_ . 'PDO_functions.php';
+require_once _LIB_PATH_ . 'error_functions.php';
+require_once _LIB_PATH_ . 'misc_functions.php';
 
 ini_set('error_log', _LOG_PATH_ . 'getbots.error.log');
 
-/** @noinspection SqlDialectInspection */
-/** @noinspection SqlNoDataSourceInspection */
 $sql = "SELECT `bot_id`, `bot_name` FROM `$dbn`.`bots`;";
-$result = db_fetchAll($sql,null, __FILE__, __FUNCTION__, __LINE__);
-$bots = array('bots' => array());
+$result = db_fetchAll($sql, null, __FILE__, __FUNCTION__, __LINE__);
 
-foreach ($result as $row)
-{
-    $bot_id = $row['bot_id'];
-    $bot_name = $row['bot_name'];
-    $bots['bots'][$bot_id] = $bot_name;
+// Defensive: $result may be false on error
+$bots = ['bots' => []];
+if (is_array($result)) {
+    foreach ($result as $row) {
+        $bot_id = $row['bot_id'];
+        $bot_name = $row['bot_name'];
+        $bots['bots'][$bot_id] = $bot_name;
+    }
 }
 
-header('Content-type: application/json');
+header('Content-Type: application/json');
 
-$out = json_encode($bots);
+// Use JSON_THROW_ON_ERROR (7.3+) for robust error handling if possible
+try {
+    $out = json_encode($bots, JSON_THROW_ON_ERROR);
+} catch (JsonException $e) {
+    http_response_code(500);
+    exit(json_encode(['error' => 'JSON encoding error', 'details' => $e->getMessage()]));
+}
+
 exit($out);
