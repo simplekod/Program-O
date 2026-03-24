@@ -10,7 +10,8 @@
  ***************************************/
 
 /** @noinspection PhpUndefinedVariableInspection */
-$bot_id = ($bot_id == 'new') ? 0 : $bot_id;
+$bot_id = (isset($bot_id) && $bot_id === 'new') ? 0 : ($bot_id ?? 0);
+
 $upperScripts   = '';
 $topNav         = $template->getSection('TopNav');
 $leftNav        = $template->getSection('LeftNav');
@@ -18,7 +19,7 @@ $main           = $template->getSection('Main');
 $navHeader      = $template->getSection('NavHeader');
 
 $FooterInfo     = getFooter();
-$errMsgClass    = (!empty($msg)) ? "ShowError" : "HideError";
+$errMsgClass    = (!empty($msg)) ? 'ShowError' : 'HideError';
 $errMsgStyle    = $template->getSection($errMsgClass);
 $noLeftNav      = '';
 $noTopNav       = '';
@@ -27,35 +28,43 @@ $noRightNav     = $template->getSection('NoRightNav');
 $headerTitle    = 'Actions:';
 $pageTitle      = 'My-Program O - Chat Demo';
 $mainContent    = 'This will eventually be the page for the chat demo.';
+// showChatFrame() may depend on $bot_id; ensure $bot_id is set above
 $mainContent    = showChatFrame();
 $mainTitle      = 'Chat Demo';
 
 /**
  * Function showChatFrame
  *
- *
- * @return mixed|string
+ * @return string
  */
-function showChatFrame()
+function showChatFrame(): string
 {
     global $template, $bot_name, $bot_id;
 
-    $qs = '?bot_id=' . $bot_id;
-    /** @noinspection SqlDialectInspection */
-    $sql = "SELECT `format` FROM `bots` WHERE `bot_id` = :bot_id limit 1;";
-    $params = array(':bot_id' => $bot_id);
-    $row = db_fetch($sql, $params, __FILE__, __FUNCTION__, __LINE__);
-    $format = strtolower($row['format']);
+    $qs = '?bot_id=' . (isset($bot_id) ? $bot_id : 0);
 
-    switch ($format)
-    {
-        case "html":
+    /** @noinspection SqlDialectInspection */
+    $sql = "SELECT `format` FROM `bots` WHERE `bot_id` = :bot_id LIMIT 1;";
+    $params = array(':bot_id' => $bot_id);
+
+    $row = db_fetch($sql, $params, __FILE__, __FUNCTION__, __LINE__);
+
+    // If db_fetch returns false/null or missing 'format', default to plain
+    $format = '';
+    if (is_array($row) && isset($row['format'])) {
+        $format = strtolower($row['format']);
+    } else {
+        $format = 'html';
+    }
+
+    switch ($format) {
+        case 'html':
             $url = '../gui/plain/';
             break;
-        case "json":
+        case 'json':
             $url = '../gui/jquery/';
             break;
-        case "xml":
+        case 'xml':
             $url = '../gui/xml/';
             break;
         default:
@@ -65,7 +74,7 @@ function showChatFrame()
     $url .= $qs;
     $out = $template->getSection('ChatDemo');
     $out = str_replace('[pageSource]', $url, $out);
-    $out = str_replace('[format]', strtolower($format), $out);
+    $out = str_replace('[format]', $format, $out);
 
     return $out;
 }
