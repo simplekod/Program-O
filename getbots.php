@@ -38,7 +38,6 @@ if (is_array($result)) {
 
 header('Content-Type: application/json');
 
-// Use JSON_THROW_ON_ERROR (7.3+) for robust error handling if possible
 try {
     $out = json_encode($bots, JSON_THROW_ON_ERROR);
 } catch (JsonException $e) {
