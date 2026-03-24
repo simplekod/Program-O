@@ -9,50 +9,32 @@
 * DETAILS: Program O's starting point
 ***************************************/
 
-if (!file_exists('config/global_config.php'))
-{
-    # No config exists we will run install
-    //header('Location: install/install_programo.php');
-    exit('Program O exists, but is not installed. <a href="install/install_programo.php">Install Program O</a>');
+if (!file_exists('config/global_config.php')) {
+    // No config exists; prompt to install
+    exit(
+        'Program O exists, but is not installed. ' .
+        '<a href="install/install_programo.php">Install Program O</a>'
+    );
 }
-else
-{
-    $get_vars = filter_input_array(INPUT_GET);
-    $qs = '?';
 
-    if (!empty($get_vars))
-    {
-        $qs .= http_build_query($get_vars);
-    }
-    # Config exists we will goto the bot
-    $thisFile = __FILE__;
+require_once 'config/global_config.php';
+require_once _LIB_PATH_ . 'misc_functions.php';
 
-    /** @noinspection PhpIncludeInspection */
-    require_once('config/global_config.php');
-    require_once(_LIB_PATH_ . '/misc_functions.php');
+$get_vars = filter_input_array(INPUT_GET) ?? [];
+$qs = !empty($get_vars) ? '?' . http_build_query($get_vars) : '';
 
-    /** @noinspection PhpUndefinedVariableInspection */
-    $format = (isset($get_vars['format'])) ? $get_vars['format'] : $format;
-    $format = _strtolower($format);
+$format = _strtolower($get_vars['format'] ?? 'plain');
 
-    switch ($format)
-    {
-        case 'json':
-            $gui = 'jquery';
-            break;
-        case 'xml':
-            $gui= 'xml';
-            break;
-        default:
-            $gui = 'plain';
-    }
+$gui = match ($format) {
+    'json' => 'jquery',
+    'xml'  => 'xml',
+    default => 'plain',
+};
 
-    if (!defined('SCRIPT_INSTALLED'))
-    {
-        header('Location: ' . _INSTALL_URL_ . 'install_programo.php');
-    }
-    else
-    {
-        header("Location: gui/$gui/$qs");
-    }
+if (!defined('SCRIPT_INSTALLED')) {
+    header('Location: ' . _INSTALL_URL_ . 'install_programo.php');
+    exit;
 }
+
+header("Location: gui/{$gui}/{$qs}");
+exit;
