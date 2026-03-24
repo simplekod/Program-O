@@ -9,40 +9,42 @@
  * DETAILS: Displays predicate values for the current chatbot
  ***************************************/
 
-# set template section defaults
-# Build page sections
-# ordered here in the order that the page is constructed
-$post_vars = filter_input_array(INPUT_POST);
-$bot_name = (isset ($_SESSION['poadmin']['bot_name'])) ? $_SESSION['poadmin']['bot_name'] : 'unknown';
-$func = (isset ($post_vars['func'])) ? $post_vars['func'] : 'getBot';
-if(!in_array($func,$allowed_functions_array)){
+/ Use null coalescing in all safe places, and strong error handling for runtime safety
+
+// Safer: Return empty array if INPUT_POST is null/missing
+$post_vars = filter_input_array(INPUT_POST) ?? [];
+
+// Use null coalescing for session/global lookups
+$bot_name = $_SESSION['poadmin']['bot_name'] ?? 'unknown';
+$func = $post_vars['func'] ?? 'getBot';
+
+// Always validate if $allowed_functions_array is defined and is an array
+if(!in_array($func, $allowed_functions_array ?? [], true)){
     die('This method is not allowed');
 }
 
 $topNav = $template->getSection('TopNav');
 $leftNav = $template->getSection('LeftNav');
 $main = $template->getSection('Main');
-
 $navHeader = $template->getSection('NavHeader');
-
 $FooterInfo = getFooter();
-$errMsgClass = (!empty ($msg)) ? "ShowError" : "HideError";
+
+$errMsgClass = (!empty($msg)) ? "ShowError" : "HideError";
 $errMsgStyle = $template->getSection($errMsgClass);
 $noLeftNav = '';
 $noTopNav = '';
 $noRightNav = $template->getSection('NoRightNav');
 $headerTitle = 'Actions:';
-$pageTitle = 'My-Program O - Bot Personality';
+$pageTitle = 'iRobot-AI - Bot Personality';
 $mainContent = "main content";
 
-switch ($func)
-{
-    case 'updateBot' :
-    case 'addBotPersonality' :
+switch ($func) {
+    case 'updateBot':
+    case 'addBotPersonality':
         $msg = $func();
         $mainContent = getBot();
         break;
-    default :
+    default:
         $mainContent = $func();
 }
 
@@ -55,93 +57,81 @@ $mainTitle = 'Bot Personality Settings for ' . $bot_name;
  */
 function getBot()
 {
-    $formCell =
-        '                <td>
-                   <label for="[row_label]">
-                     <span class="label">[row_label]:</span>
-                     <span class="formw">
-                       <input name="[row_label]" id="[row_label]" value="[row_value]" />
-                     </span>
-                   </label>
-                 </td>
-';
-    $blankCell =
-        '                <td style="text-align: center">
-                   <label for="newEntryName[cid]">
-                     <span class="label">
-                       New Entry Name: <input name="newEntryName[cid]" id="newEntryName[cid]" style="width: 98%" />
-                     </span>
-                   </label>&nbsp;
-                   <label for="newEntryValue[cid]" style="float: left; padding-left: 3px;">
-                     <span class="formw">New Entry Value: </span>
-                     <input name="newEntryValue[cid]" id="newEntryValue[cid]" />
-                   </label>
-                 </td>
-';
+    $formCell = <<<HTML
+        <td>
+            <label for="[row_label]">
+                <span class="label">[row_label]:</span>
+                <span class="formw">
+                    <input name="[row_label]" id="[row_label]" value="[row_value]" />
+                </span>
+            </label>
+        </td>
+    HTML;
+    $blankCell = <<<HTML
+        <td style="text-align: center">
+            <label for="newEntryName[cid]">
+                <span class="label">
+                    New Entry Name: <input name="newEntryName[cid]" id="newEntryName[cid]" style="width: 98%" />
+                </span>
+            </label>&nbsp;
+            <label for="newEntryValue[cid]" style="float: left; padding-left: 3px;">
+                <span class="formw">New Entry Value: </span>
+                <input name="newEntryValue[cid]" id="newEntryValue[cid]" />
+            </label>
+        </td>
+    HTML;
 
-    $startDiv = '      <td>' . "\n        ";
-    $endDiv = "\n      </td>\n      <br />\n";
-    $inputs = "";
     $row_class = 'row fm-opt';
 
-    $bot_name = $_SESSION['poadmin']['bot_name'];
-    $bot_id = (isset ($_SESSION['poadmin']['bot_id'])) ? $_SESSION['poadmin']['bot_id'] : 0;
-    $bot_id = ($bot_id == 'new') ? 0 : $bot_id;
+    $bot_name = $_SESSION['poadmin']['bot_name'] ?? '';
+    $bot_id = $_SESSION['poadmin']['bot_id'] ?? 0;
+    $bot_id = ($bot_id === 'new') ? 0 : $bot_id;
 
-    //get the current bot's personality table from the db
-    /** @noinspection SqlDialectInspection */
+    // get the current bot's personality table from the db
     $sql = "SELECT * FROM `botpersonality` WHERE  `bot_id` = :bot_id";
     $params = array(':bot_id' => $bot_id);
 
     $rows = db_fetchAll($sql, $params, __FILE__, __FUNCTION__, __LINE__);
-    $rowCount = count($rows);
+    $rowCount = is_array($rows) ? count($rows) : 0;
 
-    if ($rowCount > 0)
-    {
-        $left = true;
+    $inputs = "";
+    if ($rowCount > 0) {
         $colCount = 0;
 
-        foreach ($rows as $row)
-        {
+        foreach ($rows as $row) {
             $rid = $row['id'];
             $label = $row['name'];
-            $value = stripslashes_deep($row['value']);
+            $value = stripslashes_deep($row['value'] ?? '');
+
             $tmpRow = str_replace('[row_class]', $row_class, $formCell);
             $tmpRow = str_replace('[row_id]', $rid, $tmpRow);
             $tmpRow = str_replace('[row_label]', $label, $tmpRow);
             $tmpRow = str_replace('[row_value]', $value, $tmpRow);
             $inputs .= $tmpRow;
             $colCount++;
-
-            if ($colCount >= 3)
-            {
-                $inputs .= '              </tr>
-              <tr>' . PHP_EOL;
+            if ($colCount >= 3) {
+                $inputs .= "              </tr>\n              <tr>\n";
                 $colCount = 0;
             }
         }
 
         $inputs .= "<!-- colCount = $colCount -->\n";
 
-        if (($colCount > 0) && ($colCount < 3))
-        {
-            for ($n = 0; $n < (3 - $colCount); $n++)
-            {
-                $addCell = str_replace('[cid]', "[$n]", $blankCell);
+        if (($colCount > 0) && ($colCount < 3)) {
+            for ($n = 0; $n < (3 - $colCount); $n++) {
+                $addCell = str_replace('[cid]', "$n", $blankCell);
                 $inputs .= $addCell;
             }
         }
         $action = 'Update Data';
         $func = 'updateBot';
-    }
-    else
-    {
+    } else {
         $inputs = newForm();
         $action = 'Add New Data';
         $func = 'addBotPersonality';
     }
 
-    if (empty ($func)) {
+    if (empty($func)) {
         $func = 'getBot';
     }
 
@@ -170,15 +160,18 @@ endForm2;
 /**
  * Function stripslashes_deep
  *
- * @param $value
+ * @param mixed $value
  * @return string
  */
 function stripslashes_deep($value)
 {
+    // PHP 8: stripslashes expects string, so type check
+    if (!is_string($value)) {
+        return $value;
+    }
     $newValue = stripslashes($value);
 
-    while ($newValue != $value)
-    {
+    while ($newValue !== $value) {
         $value = $newValue;
         $newValue = stripslashes($value);
     }
@@ -197,78 +190,67 @@ function updateBot()
 
     $msg = "";
 
-    if (!empty ($post_vars['newEntryName']))
-    {
-        $newEntryNames = $post_vars['newEntryName'];
-        $newEntryValues = $post_vars['newEntryValue'];
+    // Always provide array fallback to avoid errors in PHP 8+
+    $newEntryNames = $post_vars['newEntryName'] ?? [];
+    $newEntryValues = $post_vars['newEntryValue'] ?? [];
 
-        /** @noinspection SqlDialectInspection */
+    if (!empty ($newEntryNames)) {
+        // Handle if string
+        if (is_string($newEntryNames)) {
+            $newEntryNames = [0 => $newEntryNames];
+        }
+        if (is_string($newEntryValues)) {
+            $newEntryValues = [0 => $newEntryValues];
+        }
+
         $sql = "INSERT INTO `botpersonality` (`id`, `bot_id`, `name`, `value`) VALUES (null, $bot_id, :name, :value);";
-        $params = array();
-
-        foreach ($newEntryNames as $index => $key)
-        {
-            $value = $newEntryValues[$index];
-
-            if (empty ($value)) {
+        $params = [];
+        foreach ($newEntryNames as $index => $key) {
+            $value = $newEntryValues[$index] ?? null;
+            if (empty($value)) {
                 continue;
             }
-
-            $params[] = array(':name' => $key, ':value' => $value);
+            $params[] = [':name' => $key, ':value' => $value];
         }
-
-        $rowsAffected = db_write($sql, $params, true, __FILE__, __FUNCTION__, __LINE__);
-
-        if ($rowsAffected > 0)
-        {
-            $msg = (empty ($msg)) ? "Bot personality added. \n" : $msg;
-        }
-        else {
-            $msg = 'Error updating bot personality.';
+        if (!empty($params)) {
+            $rowsAffected = db_write($sql, $params, true, __FILE__, __FUNCTION__, __LINE__);
+            if ($rowsAffected > 0) {
+                $msg = (empty($msg)) ? "Bot personality added. \n" : $msg;
+            } else {
+                $msg = 'Error updating bot personality.';
+            }
         }
     }
 
-    /** @noinspection SqlDialectInspection */
     $sql = "SELECT * FROM `botpersonality` WHERE `bot_id` = :bot_id;";
-    $params = array(':bot_id' => $bot_id);
+    $params = [':bot_id' => $bot_id];
     $result = db_fetchAll($sql, $params, __FILE__, __FUNCTION__, __LINE__);
-    $rows = array();
-    $insertParams = array();
-    $updateParams = array();
+    $rows = [];
+    $insertParams = [];
+    $updateParams = [];
 
-    foreach ($result as $row)
-    {
+    foreach ($result as $row) {
         $name = $row['name'];
         $value = $row['value'];
-        $rows[$name] = array('id' => $row['id'], 'value' => $value);
+        $rows[$name] = ['id' => $row['id'], 'value' => $value];
     }
 
-    /** @noinspection SqlDialectInspection */
     $insertSQL = "INSERT INTO `botpersonality` (`id`, `bot_id`, `name`, `value`) VALUES (null, $bot_id, :name, :value);";
-    /** @noinspection SqlDialectInspection */
     $updateSQL = "UPDATE `botpersonality` SET `value` = :value WHERE `id` = :id;";
 
-    $exclude = array('bot_id', 'func', 'action', 'newEntryName', 'newEntryValue');
-    $values = '';
-
-    foreach ($post_vars as $key => $value)
-    {
-        if (in_array($key, $exclude)) {
+    $exclude = ['bot_id', 'func', 'action', 'newEntryName', 'newEntryValue'];
+    foreach ($post_vars as $key => $value) {
+        if (in_array($key, $exclude, true)) {
             continue;
         }
 
-        if (!isset($rows[$key]))
-        {
-            $insertParams[] = array(':name' => $key, ':value' => $value);
-        }
-        else
-        {
+        if (!isset($rows[$key])) {
+            $insertParams[] = [':name' => $key, ':value' => $value];
+        } else {
             $oldValue = $rows[$key]['value'];
-
-            if ($value != $oldValue)
-            {
+            if ($value !== $oldValue) {
                 $curId = $rows[$key]['id'];
-                $updateParams[] = array(':value' => $value, ':id' => $curId);
+                $updateParams[] = [':value' => $value, ':id' => $curId];
             }
         }
     }
@@ -277,13 +259,17 @@ function updateBot()
         return 'No changes found.';
     }
 
-    $affectedRows = (!empty($updateParams)) ? db_write($updateSQL, $updateParams, true, __FILE__, __FUNCTION__, __LINE__) : 0;
-    $affectedRows += (!empty($updateParams)) ? db_write($insertSQL, $insertParams, true, __FILE__, __FUNCTION__, __LINE__) : 0;
+    $affectedRows = 0;
+    if (!empty($updateParams)) {
+        $affectedRows += db_write($updateSQL, $updateParams, true, __FILE__, __FUNCTION__, __LINE__);
+    }
+    if (!empty($insertParams)) {
+        $affectedRows += db_write($insertSQL, $insertParams, true, __FILE__, __FUNCTION__, __LINE__);
+    }
 
     if ($affectedRows > 0) {
         $msg = 'Bot Personality Updated.';
-    }
-    else {
+    } else {
         $msg = "Something went wrong! Affected rows = $affectedRows.";
     }
 
@@ -298,69 +284,59 @@ function updateBot()
 function addBotPersonality()
 {
     global $post_vars;
-    $bot_id = $post_vars['bot_id'];
+    $bot_id = $post_vars['bot_id'] ?? 0;
 
-    /** @noinspection SqlDialectInspection */
     $sql = "INSERT INTO `botpersonality` (`id`, `bot_id`, `name`, `value`) VALUES (null, $bot_id, :name, :value);";
     $msg = "";
-    $params = array();
+    $params = [];
 
-    $newEntryNames = (isset ($post_vars['newEntryName'])) ? $post_vars['newEntryName'] : '';
-    $newEntryValues = (isset ($post_vars['newEntryValue'])) ? $post_vars['newEntryValue'] : '';
+    // Always fallback array to avoid errors
+    $newEntryNames = $post_vars['newEntryName'] ?? [];
+    $newEntryValues = $post_vars['newEntryValue'] ?? [];
 
-    if (!empty ($newEntryNames))
-    {
-        if (is_string($newEntryNames))
-        {
-            $newEntryNames = array(0 => $newEntryNames);
+    if (!empty($newEntryNames)) {
+        if (is_string($newEntryNames)) {
+            $newEntryNames = [0 => $newEntryNames];
         }
-
-        foreach ($newEntryNames as $index => $key)
-        {
-            $value = trim($newEntryValues[$index]);
-
-            if (!empty ($value))
-            {
-                $params[] = array(':name' => $key, ':value' => $value);
+        if (is_string($newEntryValues)) {
+            $newEntryValues = [0 => $newEntryValues];
+        }
+        foreach ($newEntryNames as $index => $key) {
+            $value = trim($newEntryValues[$index] ?? '');
+            if (!empty($value)) {
+                $params[] = [':name' => $key, ':value' => $value];
             }
         }
     }
 
-    $skipKeys = array('bot_id', 'action', 'func', 'newEntryName', 'newEntryValue');
-    $sqlParams = array();
+    $skipKeys = ['bot_id', 'action', 'func', 'newEntryName', 'newEntryValue'];
 
-    foreach ($post_vars as $key => $value)
-    {
-        if (in_array($key, $skipKeys)) {
+    foreach ($post_vars as $key => $value) {
+        if (in_array($key, $skipKeys, true)) {
             continue;
         }
-
-        if (is_array($value))
-        {
-            foreach ($value as $index => $fieldValue)
-            {
-                $field = $key[$fieldValue];
+        if (is_array($value)) {
+            foreach ($value as $index => $fieldValue) {
+                $field = $key;
                 $fieldValue = trim($fieldValue);
-                $params[] = array(':name' => $field, ':value' => $fieldValue);
+                $params[] = [':name' => $field, ':value' => $fieldValue];
             }
-            continue;
-        }
-        else
-        {
+        } else {
             $value = trim($value);
-            $params[] = array(':name' => $key, ':value' => $value);
+            $params[] = [':name' => $key, ':value' => $value];
         }
     }
 
-    $rowsAffected = db_write($sql, $params, true, __FILE__, __FUNCTION__, __LINE__);
-
-    if ($rowsAffected > 0) {
-        $msg = (empty ($msg)) ? "Bot personality added. \n" : $msg;
+    if (!empty($params)) {
+        $rowsAffected = db_write($sql, $params, true, __FILE__, __FUNCTION__, __LINE__);
+        if ($rowsAffected > 0) {
+            $msg = (empty($msg)) ? "Bot personality added. \n" : $msg;
+        } else {
+            $msg = 'Error updating bot personality.';
+        }
+    } else {
+        $msg = 'No new data to add.';
     }
-    else {
-        $msg = 'Error updating bot personality.';
-    }
-
     return $msg;
 }
 
@@ -395,26 +371,22 @@ function newForm()
     $fields = file(_CONF_PATH_ . 'default_botpersonality_fields.dat');
     $count = 0;
 
-    foreach ($fields as $field)
-    {
+    foreach ($fields as $field) {
         $count++;
         $field = trim($field);
         $tmpRow = str_replace('[field]', $field, $rowTemplate);
         $tmpRow = str_replace('[uc_field]', ucfirst($field), $tmpRow);
         $out .= $tmpRow;
-
-        if ($count % 3 == 0)
-        {
+        if ($count % 3 === 0) {
             $out .= $tr;
         }
     }
 
-    switch ($count % 3)
-    {
-        case 1 :
+    switch ($count % 3) {
+        case 1:
             $out .= $blankTD;
             break;
-        case 2 :
+        case 2:
             $out .= $blankTD . $blankTD;
     }
 
