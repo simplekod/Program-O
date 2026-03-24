@@ -10,9 +10,9 @@
  ***************************************/
 
 $upperScripts = $template->getSection('UpperScripts');
-$post_vars = filter_input_array(INPUT_POST);
+$post_vars = filter_input_array(INPUT_POST) ?? [];
 
-if (count($post_vars) > 0)
+if (!empty($post_vars))
 {
     foreach ($post_vars as $key => $value)
     {
@@ -20,8 +20,8 @@ if (count($post_vars) > 0)
     }
 }
 
-$func = (isset($post_vars['func'])) ? $post_vars['func'] : 'showBugForm';
-if(!in_array($func,$allowed_functions_array)){
+$func = $post_vars['func'] ?? 'showBugForm';
+if (!in_array($func, $allowed_functions_array, true)) {
     die('This method is not allowed');
 }
 
@@ -29,23 +29,22 @@ if(!in_array($func,$allowed_functions_array)){
 # ordered here in the order that the page is constructed
 # Only the variables that are different from the
 # login page need be set here.
-$topNav         = $template->getSection('TopNav');
-$leftNav        = $template->getSection('LeftNav');
-$main           = $template->getSection('Main');
+$topNav      = $template->getSection('TopNav');
+$leftNav     = $template->getSection('LeftNav');
+$main        = $template->getSection('Main');
+$navHeader   = $template->getSection('NavHeader');
 
-$navHeader      = $template->getSection('NavHeader');
-
-$FooterInfo     = getFooter();
-$errMsgClass    = (!empty($msg)) ? "ShowError" : "HideError";
-$errMsgStyle    = $template->getSection($errMsgClass);
-$noLeftNav      = '';
-$noTopNav       = '';
-$noRightNav     = $template->getSection('NoRightNav');
-$headerTitle    = 'Actions:';
-$pageTitle      = 'My-Program O - Report a Bug';
-$mainContent    = $func();
-$lowerScripts   .= '      <script type="text/javascript">var fName = document.contactForm.name;fName.focus();</script>';
-$mainTitle      = 'Send a Bug Report';
+$FooterInfo  = getFooter();
+$errMsgClass = !empty($msg) ? "ShowError" : "HideError";
+$errMsgStyle = $template->getSection($errMsgClass);
+$noLeftNav   = '';
+$noTopNav    = '';
+$noRightNav  = $template->getSection('NoRightNav');
+$headerTitle = 'Actions:';
+$pageTitle   = 'My-Program O - Report a Bug';
+$mainContent = $func();
+$lowerScripts .= '      <script type="text/javascript">var fName = document.contactForm.name;fName.focus();</script>';
+$mainTitle   = 'Send a Bug Report';
 
 
 /**
@@ -67,37 +66,35 @@ function showBugForm()
 /**
  * Function sendMail
  *
- *
  * @return string
  */
 function sendMail()
 {
     global $email, $name, $subject, $message, $captcha;
 
-    #print "<!-- Ginger message = $message --\n";
     $_SESSION['message'] = $message;
     $rawCap = $captcha;
-    $captcha = sha1(strtolower($captcha));
-    $capKey = (isset($_SESSION["capKey"])) ? $_SESSION["capKey"] : "";
+    $captcha = sha1(strtolower($captcha ?? ''));
+    $capKey = $_SESSION["capKey"] ?? "";
     $out = "";
 
-    $time = date('h:j:s');
+    $time = date('h:i:s');
     $date = date('m/d/Y');
 
-    $remoteAddr = $_SERVER['REMOTE_ADDR'];
-    $remoteHost = (isset($_SERVER['REMOTE_HOST'])) ? $_SERVER['REMOTE_HOST'] : 'localhost';
-    $localServer = $_SERVER['HTTP_HOST'];
+    $remoteAddr = $_SERVER['REMOTE_ADDR'] ?? '';
+    $remoteHost = $_SERVER['REMOTE_HOST'] ?? 'localhost';
+    $localServer = $_SERVER['HTTP_HOST'] ?? '';
     $senderInfo = "\n\nThis message was sent through the Program O Bug Reporting System at $localServer, from $remoteAddr at $time on $date\n";
     $message .= $senderInfo;
 
-    $cba = checkBadAddress($email);
+    $cba = checkBadAddress($email ?? '');
     $cbip = checkBadIP();
 
-    if ($email != "" && $name != "" && $subject != "" && $cba == 0 && $cbip == 0 && $message != "" && ($captcha == $capKey))
-    {
-        //$toAddr = "dmorton@geekcavecreations.com, " . BUGS_EMAIL;
+    if (
+        !empty($email) && !empty($name) && !empty($subject)
+        && $cba === 0 && $cbip === 0 && !empty($message) && ($captcha === $capKey)
+    ) {
         $toAddr = BUGS_EMAIL;
-        $fromAddr = "$email";
         $header = "From: $name <$email>";
         $result = mail($toAddr, $subject, $message, $header);
         $out .= <<<endThanx
@@ -109,18 +106,15 @@ function sendMail()
         <a href="./">Home</a>
       </p>
 endThanx;
-    }
-    else
-    {
+    } else {
         $description = "";
-        $description .= ($cba == 1)             ? "        <li>Your email address is on our ban list.</li>\n" : "";
-        $description .= ($cbip == 1)            ? "        <li>Your IP address is on our ban list.</li>\n" : "";
-        $description .= ($name == "")           ? "        <li>The name field was left blank.</li>\n" : "";
-        $description .= ($subject == "")        ? "        <li>The subject field was left blank.</li>\n" : "";
-        $description .= ($message == "")        ? "        <li>The message field was left blank.</li>\n" : "";
-        #$description .= ($captcha != $capKey) ? "        <li>The typed CAPTCHA did not match the image (image was $capKey and text was $captcha. Text entered was $rawCap).</li>\n" : "";
-        $description .= ($captcha != $capKey) ? "        <li>The typed CAPTCHA did not match the image.</li>\n" : "";
-        $insert = ($cba == 1 or $cbip == 1) ? " don't" : "";
+        $description .= ($cba === 1)           ? "        <li>Your email address is on our ban list.</li>\n" : "";
+        $description .= ($cbip === 1)          ? "        <li>Your IP address is on our ban list.</li>\n" : "";
+        $description .= (empty($name))         ? "        <li>The name field was left blank.</li>\n" : "";
+        $description .= (empty($subject))      ? "        <li>The subject field was left blank.</li>\n" : "";
+        $description .= (empty($message))      ? "        <li>The message field was left blank.</li>\n" : "";
+        $description .= ($captcha !== $capKey) ? "        <li>The typed CAPTCHA did not match the image.</li>\n" : "";
+        $insert = ($cba === 1 || $cbip === 1)  ? " don't" : "";
 
         $out .= <<<endOops
       <ul>The following errors need to be addressed:
@@ -136,13 +130,16 @@ endOops;
 /**
  * Function checkBadAddress
  *
- * @param $address
+ * @param string $address
  * @return int
  */
 function checkBadAddress($address)
 {
     $out = 0;
-    $excluded = array("namecheap2.ehost-services150.com", "rxciales.info", "mail.ru", "rxcilliss.info", "PaulkyLyday@gmail.com");
+    $excluded = [
+        "namecheap2.ehost-services150.com", "rxciales.info",
+        "mail.ru", "rxcilliss.info", "PaulkyLyday@gmail.com"
+    ];
 
     foreach ($excluded as $check)
     {
@@ -159,14 +156,13 @@ function checkBadAddress($address)
 /**
  * Function checkBadIP
  *
- *
  * @return int
  */
 function checkBadIP()
 {
-    $IP = $_SERVER['REMOTE_ADDR'];
+    $IP = $_SERVER['REMOTE_ADDR'] ?? '';
     $out = 0;
-    $excluded = array("89.28.114", "85.140.66.54");
+    $excluded = ["89.28.114", "85.140.66.54"];
 
     foreach ($excluded as $check)
     {
