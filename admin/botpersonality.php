@@ -9,16 +9,11 @@
  * DETAILS: Displays predicate values for the current chatbot
  ***************************************/
 
-/ Use null coalescing in all safe places, and strong error handling for runtime safety
-
-// Safer: Return empty array if INPUT_POST is null/missing
 $post_vars = filter_input_array(INPUT_POST) ?? [];
 
-// Use null coalescing for session/global lookups
 $bot_name = $_SESSION['poadmin']['bot_name'] ?? 'unknown';
 $func = $post_vars['func'] ?? 'getBot';
 
-// Always validate if $allowed_functions_array is defined and is an array
 if(!in_array($func, $allowed_functions_array ?? [], true)){
     die('This method is not allowed');
 }
