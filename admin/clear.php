@@ -11,17 +11,20 @@
  ***************************************/
 $content = "";
 $upperScripts = $template->getSection('UpperScripts');
-$post_vars = filter_input_array(INPUT_POST, FILTER_SANITIZE_STRING);
+// FILTER_SANITIZE_STRING was removed in PHP 8.1+; use FILTER_DEFAULT or sanitize manually after
+$post_vars = filter_input_array(INPUT_POST, FILTER_DEFAULT);
 
-if ((isset ($post_vars['action'])) && ($post_vars['action'] == "clear"))
+if (!empty($post_vars))
 {
-    $msg = clearAIML();
+    if (isset($post_vars['action']) && $post_vars['action'] === "clear")
+    {
+        $msg = clearAIML();
+    }
+    elseif (isset($post_vars['clearFile']) && $post_vars['clearFile'] !== "null")
+    {
+        $msg = clearAIMLByFileName($post_vars['clearFile']);
+    }
 }
-elseif ((isset ($post_vars['clearFile'])) && ($post_vars['clearFile'] != "null"))
-{
-    $msg = clearAIMLByFileName($post_vars['clearFile']);
-}
-else { }
 
 $content .= buildMain();
 $topNav = $template->getSection('TopNav');
@@ -29,24 +32,23 @@ $leftNav = $template->getSection('LeftNav');
 $main = $template->getSection('Main');
 $navHeader = $template->getSection('NavHeader');
 $FooterInfo = getFooter();
-$errMsgClass = (!empty ($msg)) ? "ShowError" : "HideError";
+$errMsgClass = (!empty($msg)) ? "ShowError" : "HideError";
 $errMsgStyle = $template->getSection($errMsgClass);
 $noLeftNav = '';
 $noTopNav = '';
 $noRightNav = $template->getSection('NoRightNav');
 $headerTitle = 'Actions:';
-$pageTitle = "My-Program O - Clear AIML Categories";
+$pageTitle = "iRobot-AI - Clear AIML Categories";
 $mainContent = $content;
 $mainTitle = "Clear AIML Categories for the bot named $bot_name [helpLink]";
 $showHelp = $template->getSection('ClearShowHelp');
 $mainTitle = str_replace('[helpLink]', $template->getSection('HelpLink'), $mainTitle);
 $mainContent = str_replace('[showHelp]', $showHelp, $mainContent);
 $mainContent = str_replace('[upperScripts]', $upperScripts, $mainContent);
-$mainContent = str_replace('[bot_name]', $bot_name, $mainContent);
+$mainContent = str_replace('[bot_name]', $bot_name ?? 'unknown', $mainContent);
 
 /**
  * Function clearAIML
- *
  *
  * @return string
  */
@@ -55,7 +57,7 @@ function clearAIML()
     global $bot_id, $bot_name;
     /** @noinspection SqlDialectInspection */
     $sql = "DELETE FROM `aiml` WHERE `bot_id` = :bot_id;";
-    $params = array(':bot_id' => $bot_id);
+    $params = [':bot_id' => $bot_id];
     $affectedRows = db_write($sql, $params, false, __FILE__, __FUNCTION__, __LINE__);
     $msg = "<strong>All AIML categories cleared for $bot_name!</strong><br />";
 
@@ -65,7 +67,7 @@ function clearAIML()
 /**
  * Function clearAIMLByFileName
  *
- * * @param $filename
+ * @param string $filename
  * @return string
  */
 function clearAIMLByFileName($filename)
@@ -73,10 +75,10 @@ function clearAIMLByFileName($filename)
     global $bot_id;
     /** @noinspection SqlDialectInspection */
     $sql = "DELETE FROM `aiml` WHERE `filename` LIKE :filename AND `bot_id` = :bot_id;";
-    $params = array(
-    ':bot_id' => $bot_id,
-    ':filename' => $filename,
-    );
+    $params = [
+        ':bot_id' => $bot_id,
+        ':filename' => $filename,
+    ];
     $affectedRows = db_write($sql, $params, false, __FILE__, __FUNCTION__, __LINE__);
     $msg = "<br/><strong>AIML categories cleared for file $filename!</strong><br />";
 
@@ -86,18 +88,17 @@ function clearAIMLByFileName($filename)
 /**
  * Function buildSelOpts
  *
- *
- * @return string
+ * @return string|false
  */
 function buildSelOpts()
 {
     global $bot_id, $bot_name, $msg;
     /** @noinspection SqlDialectInspection */
     $sql = "SELECT DISTINCT filename FROM `aiml` WHERE `bot_id` = :bot_id ORDER BY `filename`;";
-    $params = array(':bot_id' => $bot_id);
+    $params = [':bot_id' => $bot_id];
     $result = db_fetchAll($sql, $params, __FILE__, __FUNCTION__, __LINE__);
 
-    if (count($result) == 0)
+    if (empty($result))
     {
         $msg = "The chatbot '$bot_name' has no AIML categories to clear.";
         return false;
@@ -108,7 +109,7 @@ function buildSelOpts()
 
     foreach ($result as $row)
     {
-        if (empty ($row['filename']))
+        if (empty($row['filename']))
         {
             $curOption = "                  <option value=\"\">{No Filename entry}</option>\n";
         }
@@ -124,7 +125,6 @@ function buildSelOpts()
 
 /**
  * Function buildMain
- *
  *
  * @return string
  */
