@@ -10,6 +10,8 @@
 * DETAILS: Search the AIML table of the DB for desired categories
 * ************************************* */
 
+$msg = $msg ?? '';
+
 $mainContent = $template->getSection('EditAimlPage');
 $topNav = $template->getSection('TopNav');
 $leftNav = $template->getSection('LeftNav');
@@ -17,17 +19,21 @@ $rightNav = $template->getSection('RightNav');
 $main = $template->getSection('Main');
 $navHeader = $template->getSection('NavHeader');
 $FooterInfo = getFooter();
-$errMsgClass = (!empty ($msg)) ? "ShowError" : "HideError";
+
+$errMsgClass = !empty($msg) ? "ShowError" : "HideError";
 $errMsgStyle = $template->getSection($errMsgClass);
+
 $noLeftNav = '';
 $noTopNav = '';
 $noRightNav = $template->getSection('NoRightNav');
+
 $headerTitle = 'Actions:';
-$pageTitle = 'My-Program O - Search/Edit AIML';
+$pageTitle = 'iRobot-AI - Search/Edit AIML';
 $mainTitle = 'Search/Edit AIML' . $template->getSection('HelpLink');
 $showHelp = $template->getSection('editAIMLShowHelp');
 $mainContent = str_replace('[showHelp]', $showHelp, $mainContent);
+
 $editScriptTemplate = '<script type="text/javascript" src="scripts/[editScript].js"></script>';
 $editScript = 'editAiml';
 $editScriptTag = str_replace('[editScript]', $editScript, $editScriptTemplate);
-
+?>
