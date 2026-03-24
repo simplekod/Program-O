@@ -2,7 +2,7 @@
 
 $e_all = defined('E_DEPRECATED') ? E_ALL & ~E_DEPRECATED : E_ALL;
 error_reporting($e_all);
-ini_set('display_errors', 1);
+ini_set('display_errors', '1');
 $thisFile = __FILE__;
 
 /** @noinspection PhpIncludeInspection */
@@ -18,14 +18,14 @@ $contents = preg_replace_callback($search, 'make_input', $contents);
 /**
  * Function make_input
  *
- * @param $matches
+ * @param array $matches
  * @return string
  */
 function make_input($matches)
 {
     global $all_vars;
-    $my_var = (in_array($matches[1], array_keys($all_vars))) ? $all_vars[$matches[1]] : '';
-    $replace = '<input name="' . $matches[1] . '" value="' . $my_var . '" />';
+    $my_var = array_key_exists($matches[1], $all_vars) ? $all_vars[$matches[1]] : '';
+    $replace = '<input name="' . htmlspecialchars($matches[1], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '" value="' . htmlspecialchars((string)$my_var, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '" />';
 
     return $replace;
 }
