@@ -10,52 +10,48 @@
  ***************************************/
 
 set_time_limit(0);
+
 $content = '';
 $status = '';
-//assume ZipArchive is enabled by default
+$msg = '';
+$bot_id = $bot_id ?? 0;
+$bot_name = $bot_name ?? '';
+$botmaster_name = $botmaster_name ?? '';
+$charset = $charset ?? 'UTF-8';
+$dbn = $dbn ?? '';
+$dbh = $dbh ?? '';
+
+// ZipArchive check
 $ZIPenabled = class_exists('ZipArchive');
-// $ZIPenabled = false; // debugging and testing - comment out when complete
-$downloadLinks = ''; //download links for single files
+$downloadLinks = '';
 $dlLinkTemplate = '<a class="dlLink" href="file.php?singlefile=[filename]" target="_blank">[filename]</a>';
 
-/** @noinspection PhpUndefinedVariableInspection */
-$bot_id = ($bot_id == 'new') ? 0 : $bot_id;
 $referer = filter_input(INPUT_SERVER, 'HTTP_REFERER', FILTER_SANITIZE_URL);
 $upperScripts = $template->getSection('UpperScripts');
 
-$allowed_get_vars = $allowed_pages['download'];
+$allowed_get_vars = $allowed_pages['download'] ?? [];
 $form_vars = clean_inputs($allowed_get_vars);
 
-//trigger_error('Test error: form vars =' . print_r($form_vars, true), E_USER_NOTICE);
-
-if (!empty($form_vars['type']) && !empty($form_vars['filenames']))
-{
+if (!empty($form_vars['type']) && !empty($form_vars['filenames'])) {
     $type = $form_vars['type'];
 
-    /** @noinspection PhpUndefinedVariableInspection */
-    $zipFilename = "$bot_name.$type.zip";
+    $zipFilename = "{$bot_name}.{$type}.zip";
 
-    if (!isset($form_vars['filenames']))
-    {
+    if (!isset($form_vars['filenames'])) {
         $msg .= 'No files were selected for download. Please select at least one file.';
-    }
-    else
-    {
+    } else {
         $fileNames = $form_vars['filenames'];
 
-        if($ZIPenabled)
-        {
-            // clear out old zip file if it exists, to prepare for the new one.
+        if($ZIPenabled) {
+            // Clear old zip file if exists
             if(file_exists(_DOWNLOAD_PATH_ . $zipFilename)) unlink(_DOWNLOAD_PATH_ . $zipFilename);
             $zip = new ZipArchive();
             $success = $zip->open(_DOWNLOAD_PATH_ . $zipFilename, ZipArchive::CREATE);
 
-            if ($success === true)
-            {
-                foreach ($fileNames as $filename)
-                {
+            if ($success === true) {
+                foreach ($fileNames as $filename) {
                     $curZipContent = ($type == 'SQL') ? getSQLByFileName($filename) : getAIMLByFileName($filename);
-                    $filename = ($type == 'SQL') ? str_replace('.aiml', '.sql', $filename) : $filename;
+                    $filename = ($type == 'SQL') ? str_replace('.aiml', '.sql', $filename ?? '') : ($filename ?? '');
                     $zip->addFromString("{$bot_name}.{$filename}", $curZipContent);
                 }
 
@@ -66,14 +62,14 @@ if (!empty($form_vars['type']) && !empty($form_vars['filenames']))
                 header("Refresh: 5; url=file.php");
 
                 $msg .= "The file $zipFilename is being processed. If the download doesn't start within a few seconds, please click <a href=\"file.php\">here</a>.\n";
+            } else {
+                $msg .= 'Failed to create Zip file.';
             }
-        }else{
-            //lets download all selected files individually
+        } else {
             $msg .= 'The PHP ZipArchive class is not available on this server, so Zip files cannot be downloaded. However, individual AIML files can be downloaded. We apologise for the inconvenience. <br/><br/>';
-            foreach ($fileNames as $filename)
-            {
+            foreach ($fileNames as $filename) {
                 $curFileContent = ($type == 'SQL') ? getSQLByFileName($filename) : getAIMLByFileName($filename);
-                $filename = ($type == 'SQL') ? str_replace('.aiml', '.sql', $filename) : $filename;
+                $filename = ($type == 'SQL') ? str_replace('.aiml', '.sql', $filename ?? '') : ($filename ?? '');
                 //delete old aiml files
                 if(file_exists(_DOWNLOAD_PATH_ . $filename)) unlink(_DOWNLOAD_PATH_ . $filename);
                 file_put_contents(_DOWNLOAD_PATH_ . $filename, $curFileContent);
@@ -102,7 +98,7 @@ $noLeftNav = '';
 $noTopNav = '';
 $noRightNav = $template->getSection('NoRightNav');
 $headerTitle = 'Actions:';
-$pageTitle = "My-Program O - Download AIML files";
+$pageTitle = "iRobot-AI - Download AIML files";
 
 $mainContent = $content;
 $mainTitle = "Download AIML files for the bot named  $bot_name [helpLink]";
@@ -118,20 +114,19 @@ $mainTitle = str_replace('[helpLink]', $template->getSection('HelpLink'), $mainT
  */
 function getAIMLByFileName($filename)
 {
-    if ($filename == 'null')
-    {
+    if ($filename === null || $filename === 'null') {
         return "You need to select a file to download.";
     }
 
     global $botmaster_name, $charset, $bot_id;
 
-    $bmnLen = 51 - strlen($botmaster_name);
+    $bmnLen = 51 - strlen($botmaster_name ?? '');
     $bmnPadding = str_pad('', $bmnLen);
     $categoryTemplate = '<category><pattern>[pattern]</pattern>[that]<template>[template]</template></category>';
 
-    $cleanedFilename = $filename;
+    $cleanedFilename = $filename ?? '';
 
-    $topicArray = array();
+    $topicArray = [];
     $curPath = dirname(__FILE__);
     chdir($curPath);
 
@@ -140,10 +135,7 @@ function getAIMLByFileName($filename)
     $fileContent = str_replace('[charset]', $charset, $fileContent);
     $fileContent = str_replace('[bm_name]', $botmaster_name . $bmnPadding, $fileContent);
 
-    $pad_len = 60 - strlen($cleanedFilename);
-//  NOTE: the value 60 in the previous line is the number of characters from the `[` to the first '-'
-//  in the comment that contains the filename. This makes the comment the same width as the others
-//  in the AIML file.
+    $pad_len = 60 - strlen($cleanedFilename ?? '');
     $space_padding = str_pad('', $pad_len, ' ');
     $fileContent = str_replace('[fileName]', $cleanedFilename . $space_padding, $fileContent);
 
@@ -153,54 +145,45 @@ function getAIMLByFileName($filename)
 
     $fileContent = str_replace($curDateSearch, $curDate, $fileContent);
 
-    /** @noinspection SqlDialectInspection */
     $sql = "SELECT DISTINCT topic FROM aiml WHERE filename LIKE :cleanedFilename and bot_id = :bot_id;";
-        $params = array(
-            ':cleanedFilename' => $cleanedFilename,
-            ':bot_id' => $bot_id
-        );
+    $params = [
+        ':cleanedFilename' => $cleanedFilename,
+        ':bot_id' => $bot_id
+    ];
     $result = db_fetchAll($sql, $params, __FILE__, __FUNCTION__, __LINE__);
 
-    foreach ($result as $row)
-    {
-        $topicArray[] = $row['topic'];
+    foreach ($result as $row) {
+        $topicArray[] = $row['topic'] ?? '';
     }
 
-    foreach ($topicArray as $topic)
-    {
-        if (!empty ($topic))
-        {
+    foreach ($topicArray as $topic) {
+        if (!empty($topic)) {
             $fileContent .= "<topic name=\"$topic\">\n";
         }
 
-        /** @noinspection SqlDialectInspection */
         $sql = "SELECT pattern, thatpattern, template FROM aiml WHERE topic LIKE :topic AND filename LIKE :cleanedFilename and bot_id = :bot_id;";
-        $params = array(
+        $params = [
             ':topic' => $topic,
             ':cleanedFilename' => $cleanedFilename,
             ':bot_id' => $bot_id
-        );
+        ];
         $result = db_fetchAll($sql, $params, __FILE__, __FUNCTION__, __LINE__);
 
-        foreach ($result as $row)
-        {
-            $pattern = _strtoupper($row['pattern']);
+        foreach ($result as $row) {
+            $pattern = _strtoupper($row['pattern'] ?? '');
 
-            $template = str_replace("\r\n", '', $row['template']);
-            $template = str_replace("\n", '', $row['template']);
+            $template = str_replace(["\r\n", "\n"], '', $row['template'] ?? '');
 
             $newLine = str_replace('[pattern]', $pattern, $categoryTemplate);
             $newLine = str_replace('[template]', $template, $newLine);
 
-            $that = (!empty ($row['thatpattern'])) ? '<that>' . $row['thatpattern'] .
-                '</that>' : '';
+            $that = (!empty($row['thatpattern'])) ? '<that>' . $row['thatpattern'] . '</that>' : '';
 
             $newLine = str_replace('[that]', $that, $newLine);
             $fileContent .= "$newLine\n";
         }
 
-        if (!empty ($topic))
-        {
+        if (!empty($topic)) {
             $fileContent .= "</topic>\n";
         }
     }
@@ -210,12 +193,16 @@ function getAIMLByFileName($filename)
     $dom = new DOMDocument();
     $dom->preserveWhiteSpace = false;
     $dom->formatOutput = true;
-    $dom->loadXML(trim($fileContent));
+    try {
+        $dom->loadXML(trim($fileContent));
+    } catch (Exception $e) {
+        return "Error loading XML: " . $e->getMessage();
+    }
 
     $fileContent = $dom->saveXML();
 
     $outFile = ltrim($fileContent, "\n\r\n");
-    $outFile = (IS_MB_ENABLED) ? mb_convert_encoding($outFile, 'UTF-8') : $outFile;
+    $outFile = (defined('IS_MB_ENABLED') && IS_MB_ENABLED) ? mb_convert_encoding($outFile, 'UTF-8') : $outFile;
 
     return $outFile;
 }
@@ -232,16 +219,15 @@ function getSQLByFileName($filename)
 
     $curPath = dirname(__FILE__);
     chdir($curPath);
-    $dbFilename = $filename;
-    $filename = str_ireplace('.aiml', '.sql', $filename);
+    $dbFilename = $filename ?? '';
+    $filename = str_ireplace('.aiml', '.sql', $filename ?? '');
     $newLine = "    ([bot_id],'[pattern]','[thatpattern]','[template]','[topic]','[filename]'),";
     $phpVer = phpversion();
     $cleanedFilename = $dbFilename;
-    $topicArray = array();
+    $topicArray = [];
 
-    /** @noinspection SqlDialectInspection */
     $sql = "SELECT * FROM aiml WHERE filename LIKE :cleanedFilename and bot_id = :bot_id ORDER BY id ASC;";
-    $params = array(':cleanedFilename' => $cleanedFilename, ':bot_id' => $bot_id);
+    $params = [':cleanedFilename' => $cleanedFilename, ':bot_id' => $bot_id];
     $fileContent = file_get_contents('SQL_Header.dat');
 
     $fileContent = str_replace('[botmaster_name]', $botmaster_name, $fileContent);
@@ -250,30 +236,27 @@ function getSQLByFileName($filename)
     $fileContent = str_replace('[sql]', $sql, $fileContent);
     $fileContent = str_replace('[phpVer]', $phpVer, $fileContent);
 
-    $curDate = date('m-d-Y h:j:s A', time());
-
+    $curDate = date('m-d-Y h:i:s A', time());
     $fileContent = str_replace('[curDate]', $curDate, $fileContent);
     $fileContent = str_replace('[fileName]', $cleanedFilename, $fileContent);
 
     $result = db_fetchAll($sql, $params, __FILE__, __FUNCTION__, __LINE__);
 
-    foreach ($result as $row)
-    {
-        $template = str_replace("\r\n", '', $row['template']);
-        $template = str_replace("\n", '', $template);
+    foreach ($result as $row) {
+        $template = str_replace(["\r\n", "\n"], '', $row['template'] ?? '');
 
-        //$newLine = str_replace('[id]', $row['id'], $categoryTemplate);
-        $newLine = str_replace('[bot_id]', $row['bot_id'], $newLine);
-        $newLine = str_replace('[pattern]', $row['pattern'], $newLine);
-        $newLine = str_replace('[thatpattern]', $row['thatpattern'], $newLine);
-        $newLine = str_replace('[template]', $template, $newLine);
-        $newLine = str_replace('[topic]', $row['topic'], $newLine);
-        $newLine = str_replace('[filename]', $row['filename'], $newLine);
+        $curLine = $newLine;
+        $curLine = str_replace('[bot_id]', $row['bot_id'] ?? '', $curLine);
+        $curLine = str_replace('[pattern]', $row['pattern'] ?? '', $curLine);
+        $curLine = str_replace('[thatpattern]', $row['thatpattern'] ?? '', $curLine);
+        $curLine = str_replace('[template]', $template, $curLine);
+        $curLine = str_replace('[topic]', $row['topic'] ?? '', $curLine);
+        $curLine = str_replace('[filename]', $row['filename'] ?? '', $curLine);
 
-        $fileContent .= "$newLine\r\n";
+        $fileContent .= "$curLine\r\n";
     }
 
-    $fileContent = trim($fileContent, ",\r\n");
+    $fileContent = rtrim($fileContent, ",\r\n");
     $fileContent .= "\n";
 
     return $fileContent;
@@ -282,19 +265,17 @@ function getSQLByFileName($filename)
 /**
  * Function getCheckboxes
  *
- * @return string
+ * @return string|false
  */
 function getCheckboxes()
 {
     global $bot_id, $bot_name, $msg;
 
-    /** @noinspection SqlDialectInspection */
     $sql = "SELECT DISTINCT filename FROM `aiml` WHERE `bot_id` = :bot_id ORDER BY `filename`;";
-    $params = array(':bot_id' => $bot_id);
+    $params = [':bot_id' => $bot_id];
     $result = db_fetchAll($sql, $params, __FILE__, __FUNCTION__, __LINE__);
 
-    if (count($result) == 0)
-    {
+    if (empty($result)) {
         $msg = "The chatbot '$bot_name' has no AIML categories to download. Please select another bot.";
         return false;
     }
@@ -308,14 +289,12 @@ function getCheckboxes()
 endRow;
     $rowCount = 0;
 
-    foreach ($result as $row)
-    {
-        if (empty ($row['filename']))
-        {
+    foreach ($result as $row) {
+        if (empty ($row['filename'])) {
             $row['filename'] = 'unnamed_AIML.aiml';
         }
 
-        $file_name = $row['filename'];
+        $file_name = $row['filename'] ?? '';
         $file_name_id = str_replace('.', '_', $file_name);
         $curCheckbox = str_replace('[file_name]', $file_name, $checkboxTemplate);
         $curCheckbox = str_replace('[file_name_id]', $file_name_id, $curCheckbox);
@@ -328,8 +307,6 @@ endRow;
 
 /**
  * Function renderMain
- *
- *
  * @return string
  */
 function renderMain()
@@ -338,8 +315,7 @@ function renderMain()
 
     $file_checkboxes = getCheckboxes();
 
-    if ($file_checkboxes === false)
-    {
+    if ($file_checkboxes === false) {
         return "<div class=\"bold red center\">$msg</div><br>\n";
     }
 
@@ -352,11 +328,9 @@ function renderMain()
 function replace_last($search, $replace, $subject)
 {
     $pos = strripos($subject, $search);
-    if(false !== $pos)
-    {
+    if ($pos !== false) {
         $sLen = strlen($search);
         $subject = substr_replace($subject, $replace, $pos, $sLen);
     }
     return $subject;
 }
-
